@@ -62,8 +62,6 @@ void nmi_watchdog_handler(struct nmi_frame * frame)
 			 * NMI. */
 			nmi_sprofile_handler(frame);
 			watchdog->reinit(cpuid/*UNUSED*/);
-		} else {
-			lockup_check(frame);
 		}
 	}
 #else
