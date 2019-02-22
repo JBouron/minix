@@ -227,6 +227,13 @@ static void idle(void)
 		arch_pause();
 	}
 	interrupts_disable();
+	if(!*local_wake_up) {
+		/* This CPU got woken up by a signal that work is available
+		 * int its runqueues. Thus it did not go through
+		 * context_stop_idle and we need to do so now to acquire the
+		 * BKL (+account for idle time).  */
+		context_stop_idle();
+	}
 	*local_wake_up = 0;
 
 	assert(big_kernel_lock.owner==cpuid);
