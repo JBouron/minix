@@ -542,6 +542,9 @@ static int do_sync_ipc(struct proc * caller_ptr, /* who made the call */
   }
   else
   {
+#if 0
+/* Ignore all the safety nets for now so that we can implement IPC benchmarks
+ * */
 	/* Require a valid source and/or destination process. */
 	if(!isokendpt(src_dst_e, &src_dst_p)) {
 #if 0
@@ -568,7 +571,12 @@ static int do_sync_ipc(struct proc * caller_ptr, /* who made the call */
 			return(ECALLDENIED);	/* call denied by ipc mask */
 		}
 	}
+#endif
   }
+
+#if 0
+/* Ignore all the safety nets for now so that we can implement IPC benchmarks
+ * */
 
   /* Check if the process has privileges for the requested call. Calls to the 
    * kernel may only be SENDREC, because tasks always reply and may not block 
@@ -589,6 +597,7 @@ static int do_sync_ipc(struct proc * caller_ptr, /* who made the call */
 #endif
 	return(ETRAPDENIED);		/* trap denied by mask or kernel */
   }
+#endif
 
   switch(call_nr) {
   case SENDREC:
