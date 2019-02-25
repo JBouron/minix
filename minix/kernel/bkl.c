@@ -113,6 +113,12 @@ void bkl_mcs_unlock(void)
 	I->next->must_wait = 0;
 }
 
+/* This function is used to implement the `nolock` BKL. Simply do nothing.
+ * No init, no lock, no unlock. */
+static void noop(void)
+{
+}
+
 bkl_t big_kernel_lock;
 void create_bkl(const char *const name)
 {
@@ -134,6 +140,12 @@ void create_bkl(const char *const name)
 			.init = bkl_mcs_init,
 			.lock = bkl_mcs_lock,
 			.unlock = bkl_mcs_unlock,
+		};
+	} else if(!strcmp(name,"nolock")) {
+		big_kernel_lock = (bkl_t) {
+			.init = noop,
+			.lock = noop,
+			.unlock = noop,
 		};
 	} else {
 		panic("Unknown BKL implementation name");
