@@ -1,6 +1,6 @@
-.\"	$NetBSD: nologin.8,v 1.10 2016/09/12 05:23:32 sevan Exp $
+.\"	$NetBSD: worms.6,v 1.15 2012/08/12 17:30:03 wiz Exp $
 .\"
-.\" Copyright (c) 1993
+.\" Copyright (c) 1989, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -27,32 +27,48 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     @(#)nologin.8	8.1 (Berkeley) 6/19/93
+.\"	@(#)worms.6	8.1 (Berkeley) 5/31/93
 .\"
-.Dd September 12, 2016
-.Dt NOLOGIN 8
+.Dd July 31, 2012
+.Dt WORMS 6
 .Os
 .Sh NAME
-.Nm nologin
-.Nd politely refuse a login
+.Nm worms
+.Nd animate worms on a display terminal
 .Sh SYNOPSIS
 .Nm
+.Op Fl ft
+.Op Fl d Ar delay
+.Op Fl l Ar length
+.Op Fl n Ar number
 .Sh DESCRIPTION
 .Nm
-displays a message that an account is not available and
-returns a non-zero exit code.
-It is intended as a replacement shell field for accounts that
-have been disabled.
-.Sh SEE ALSO
-.Xr login 1
-.Sh HISTORY
-The
-.Nm
-command appeared in
-.Bx 4.4 ,
-a free re-implementation was contributed in
-.Nx 1.5
-to avoid bloat through the copyright comment.
-.Sh AUTHORS
-Re-implementation by
-.An Hubert Feyrer Aq Mt hubertf@NetBSD.org .
+is a
+.Ux
+version of the DEC-2136 program
+.Dq worms .
+.Pp
+The options are as follows:
+.Bl -tag -width XlXlengthXX
+.It Fl d Ar delay
+Specifies
+.Ar delay
+as a delay, in milliseconds, between each update.
+This is useful for fast terminals.
+Reasonable values are around 20-200;
+the default is 0.
+.It Fl f
+Makes a
+.Dq field
+for the worm(s) to eat.
+.It Fl l Ar length
+Specifies
+.Ar length
+as a length for each worm; the default is 16.
+.It Fl n Ar number
+Specifies
+.Ar number
+as the number of worms; the default is 3.
+.It Fl t
+Makes each worm leave a trail behind it.
+.El
