@@ -60,7 +60,7 @@ void nmi_watchdog_handler(struct nmi_frame * frame)
 		lockup_check(frame);
 	if (sprofiling)
 		nmi_sprofile_handler(frame);
-
+	
 	if ((watchdog_enabled || sprofiling) && watchdog->reinit)
 		watchdog->reinit(cpuid);
 #else

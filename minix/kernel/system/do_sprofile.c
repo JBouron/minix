@@ -85,7 +85,7 @@ int do_sprofile(struct proc * caller, message * m_ptr)
 			printf("ERROR : unknown profiling interrupt type\n");
 			return EINVAL;
 	}
-
+	
 	sprofiling = 1;
 
 	clean_seen_flag();
