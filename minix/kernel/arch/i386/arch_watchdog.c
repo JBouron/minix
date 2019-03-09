@@ -16,16 +16,38 @@ static struct arch_watchdog amd_watchdog;
 
 static void intel_arch_watchdog_init(const unsigned cpu)
 {
-	/* Nothing to do, the MSRs will be (re-)configured when starting the
-	 * timer for the first time and upon every tick. */
+	u64_t cpuf;
+	u32_t val;
+
+	ia32_msr_write(INTEL_MSR_PERFMON_CRT0, 0, 0);
+
+	/* Int, OS, USR, Core ccyles */
+	val = 1 << 20 | 1 << 17 | 1 << 16 | 0x3c;
+	ia32_msr_write(INTEL_MSR_PERFMON_SEL0, 0, val);
+
+	/*
+	 * should give as a tick approx. every 0.5-1s, the perf counter has only
+	 * lowest 31 bits writable :(
+	 */
+	cpuf = cpu_get_freq(cpu);
+	while (ex64hi(cpuf) || ex64lo(cpuf) > 0x7fffffffU)
+		cpuf /= 2;
+	cpuf = make64(-ex64lo(cpuf), ex64hi(cpuf));
+	watchdog->resetval = watchdog->watchdog_resetval = cpuf;
+
+	ia32_msr_write(INTEL_MSR_PERFMON_CRT0, 0, ex64lo(cpuf));
+
+	ia32_msr_write(INTEL_MSR_PERFMON_SEL0, 0,
+			val | INTEL_MSR_PERFMON_SEL0_ENABLE);
+
+	/* unmask the performance counter interrupt */
+	lapic_write(LAPIC_LVTPCR, APIC_ICR_DM_NMI);
 }
 
 static void intel_arch_watchdog_reinit(const unsigned cpu)
 {
-	/* We just recieved a tick, restart the timer with the frequency
-	 * specified when it was first started. */
-	const unsigned original_freq = watchdog->resetval;
-	watchdog->profile_init(original_freq);
+	lapic_write(LAPIC_LVTPCR, APIC_ICR_DM_NMI);
+	ia32_msr_write(INTEL_MSR_PERFMON_CRT0, 0, ex64lo(watchdog->resetval));
 }
 
 int arch_watchdog_init(void)
@@ -131,14 +153,11 @@ int i386_watchdog_start(void)
 
 static int intel_arch_watchdog_profile_init(const unsigned freq)
 {
-	/* Start the timer with frequency `freq`. */
+	u64_t cpuf;
 
-	/* Save the value of the freq for the reinit function. */
-	watchdog->resetval = freq;
-
-	/* Compute the original value of the counter. Assumes that all cpus
-	 * have the same freq. TODO */
-	const u64_t cpuf = cpu_get_freq(cpuid) / freq;
+	/* FIXME works only if all CPUs have the same freq */
+	cpuf = cpu_get_freq(cpuid);
+	cpuf /= freq;
 
 	/*
 	 * if freq is too low and the cpu freq too high we may get in a range of
@@ -149,32 +168,8 @@ static int intel_arch_watchdog_profile_init(const unsigned freq)
 		return EINVAL;
 	}
 
-	/* Reset the counter before changing the selector. */
-	ia32_msr_write(INTEL_MSR_PERFMON_CRT0, 0, 0);
-
-	/* Count `UnHalted Core Cycles` (3CH) in kernel and user-space.
-	 * Also use LAPIC interrupt when the counter reaches 0. */
-	const u32_t val = 1 << 20 | 1 << 17 | 1 << 16 | 0x3c;
-	ia32_msr_write(INTEL_MSR_PERFMON_SEL0, 0, val);
-
-	/* Configure the LAPIC to deliver an NMI when the counter reaches 0.
-	 * We need to do this before starting the counter to avoid missing the
-	 * first tick. */
-	lapic_write(LAPIC_LVTPCR, APIC_ICR_DM_NMI);
-
-	/* Init the value of the counter to the number of cycles before the
-	 * next tick of the timer.
-	 * Note that the counter is _not_ started at this point.
-	 *
-	 * Because the counter only count upwards we need to set the value
-	 * to -1*cpuf.
-	 */
-	const u32_t counter_start = (u32_t)-ex64lo(cpuf);
-	ia32_msr_write(INTEL_MSR_PERFMON_CRT0, 0, counter_start);
-
-	/* Enable the counter. */
-	const u32_t enabled_val = val | INTEL_MSR_PERFMON_SEL0_ENABLE;
-	ia32_msr_write(INTEL_MSR_PERFMON_SEL0,0,enabled_val);
+	cpuf = make64(-ex64lo(cpuf), ex64hi(cpuf));
+	watchdog->profile_resetval = cpuf;
 
 	return OK;
 }
@@ -238,3 +233,4 @@ static struct arch_watchdog amd_watchdog = {
 	/*.reinit = */		amd_watchdog_reinit,
 	/*.profile_init = */	amd_watchdog_profile_init
 };
+
