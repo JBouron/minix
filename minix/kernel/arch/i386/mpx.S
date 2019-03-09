@@ -405,6 +405,7 @@ ENTRY(restore_user_context_sysenter)
 
         /* restore PSW */
         movl    PSWREG(%ebp), %edi      /* load desired PSW to EDI */
+        andl    $0xfffffdff, %edi
         push    %edi
         popf
 
