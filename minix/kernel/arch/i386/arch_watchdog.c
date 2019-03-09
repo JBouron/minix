@@ -233,4 +233,3 @@ static struct arch_watchdog amd_watchdog = {
 	/*.reinit = */		amd_watchdog_reinit,
 	/*.profile_init = */	amd_watchdog_profile_init
 };
-

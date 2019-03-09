@@ -56,14 +56,13 @@ void nmi_watchdog_handler(struct nmi_frame * frame)
 	 * Do not check for lockups while profiling, it is extremely likely that
 	 * a false positive is detected if the frequency is high
 	 */
-	if(watchdog_enabled) {
-		if(sprofiling) {
-			/* Gather stats and re-init the timer for the next
-			 * NMI. */
-			nmi_sprofile_handler(frame);
-			watchdog->reinit(cpuid/*UNUSED*/);
-		}
-	}
+	if (watchdog_enabled && !sprofiling)
+		lockup_check(frame);
+	if (sprofiling)
+		nmi_sprofile_handler(frame);
+
+	if ((watchdog_enabled || sprofiling) && watchdog->reinit)
+		watchdog->reinit(cpuid);
 #else
 	if (watchdog_enabled) {
 		lockup_check(frame);
@@ -92,6 +91,8 @@ int nmi_watchdog_start_profiling(const unsigned freq)
 	err = watchdog->profile_init(freq);
 	if (err != OK)
 		return err;
+
+	watchdog->resetval = watchdog->profile_resetval;
 
 	return OK;
 }
