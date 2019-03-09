@@ -111,7 +111,7 @@ static int kernel_call_dispatch(struct proc * caller, message *msg)
   else if (!GET_BIT(priv(caller)->s_k_call_mask, call_nr)) {
 	  printf("SYSTEM: denied request %d from %d.\n",
 			  call_nr,msg->m_source);
-	  result = ECALLDENIED;		/* illegal message type */
+	  result = ECALLDENIED;			/* illegal message type */
   } else {
 	  /* handle the system call */
 	  if (call_vec[call_nr])

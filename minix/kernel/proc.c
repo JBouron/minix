@@ -38,7 +38,6 @@
 #include "clock.h"
 #include "spinlock.h"
 #include "arch_proto.h"
-#include "glo.h"
 
 #include <minix/syslib.h>
 
@@ -192,7 +191,6 @@ static void idle(void)
 
 #ifdef CONFIG_SMP
 	get_cpulocal_var(cpu_is_idle) = 1;
-	get_cpulocal_var(fast_wake_up) = 0;
 	/* we don't need to keep time on APs as it is handled on the BSP */
 	if (cpuid != bsp_cpu_id)
 		stop_local_timer();
@@ -208,31 +206,22 @@ static void idle(void)
 
 	/* start accounting for the idle time */
 	context_stop(proc_addr(KERNEL));
+#if !SPROFILE
+	halt_cpu();
+#else
+	if (!sprofiling)
+		halt_cpu();
+	else {
+		volatile int * v;
 
-	/* Local wake up happens when this cpu receives an interrupt while
-	 * waiting. When this happens, the interrupt handler will call
-	 * context_stop_idle which sets `idle_interrupted` to 1.
-	 * The other way to wake up is through a fast remote wake up: a remote
-	 * cpu wakes up this cpu by writing in the `fast_wake_up` variable.
-	 */
-	volatile int *local_wake_up = get_cpulocal_var_ptr(idle_interrupted);
-	volatile int *remote_wake_up = get_cpulocal_var_ptr(fast_wake_up);
-
-	*local_wake_up = 0;
-	interrupts_enable();
-	while ((!*local_wake_up)&&(!*remote_wake_up)) {
-		/* Loop until we wake up from either way described above. */
-		arch_pause();
+		v = get_cpulocal_var_ptr(idle_interrupted);
+		interrupts_enable();
+		while (!*v)
+			arch_pause();
+		interrupts_disable();
+		*v = 0;
 	}
-	interrupts_disable();
-	if(!*local_wake_up) {
-		/* This CPU got woken up by a signal that work is available
-		 * int its runqueues. Thus it did not go through
-		 * context_stop_idle and we need to do so now to acquire the
-		 * BKL (+account for idle time).  */
-		context_stop_idle();
-	}
-	*local_wake_up = 0;
+#endif
 	/*
 	 * end of accounting for the idle task does not happen here, the kernel
 	 * is handling stuff for quite a while before it gets back here!
@@ -475,7 +464,7 @@ check_misc_flags:
 #endif
 	
 	restart_local_timer();
-
+	
 	/*
 	 * restore_user_context() carries out the actual mode switch from kernel
 	 * to userspace. This function does not return
@@ -672,7 +661,8 @@ int do_ipc(reg_t r1, reg_t r2, reg_t r3)
   	    /* Process accounting for scheduling */
 	    caller_ptr->p_accounting.ipc_sync++;
 
-  	    return do_sync_ipc(caller_ptr, call_nr, (endpoint_t) r2, (message *)r3);
+  	    return do_sync_ipc(caller_ptr, call_nr, (endpoint_t) r2,
+			    (message *) r3);
   	}
   	case SENDA:
   	{
@@ -684,7 +674,7 @@ int do_ipc(reg_t r1, reg_t r2, reg_t r3)
   
   	    /* Process accounting for scheduling */
 	    caller_ptr->p_accounting.ipc_async++;
-
+ 
   	    /* Limit size to something reasonable. An arbitrary choice is 16
   	     * times the number of process table entries.
   	     */
@@ -1655,7 +1645,7 @@ void enqueue(
    * process
    */
   else if (get_cpu_var(rp->p_cpu, cpu_is_idle)) {
-  	smp_schedule(rp->p_cpu);
+  	   smp_schedule(rp->p_cpu);
   }
 #endif
 

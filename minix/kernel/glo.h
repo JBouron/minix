@@ -92,4 +92,5 @@ EXTERN unsigned bkl_succ[CONFIG_MAX_CPUS];
 
 /* Feature flags */
 EXTERN int minix_feature_flags;
+
 #endif /* GLO_H */
