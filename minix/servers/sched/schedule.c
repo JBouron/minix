@@ -12,10 +12,8 @@
 #include <assert.h>
 #include <minix/com.h>
 #include <machine/archtypes.h>
-#include <stdio.h>
 
 static unsigned balance_timeout;
-static unsigned nb_balance = 0;
 
 #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
 
@@ -41,25 +39,6 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
 
 static unsigned cpu_proc[CONFIG_MAX_CPUS];
-static void print_loads_summary(void)
-{
-	printf("Cpu loads: ");
-	for(int i=0;i<CONFIG_MAX_CPUS;++i) {
-		printf("%d:%d ",i,cpu_proc[i]);
-	}
-	printf("\n");
-}
-
-static void restrict_to_bsp(struct schedproc *proc)
-{
-	/* Clear the bitmask first. */
-	int i;
-	for(i=0;i<BITMAP_CHUNKS(CONFIG_MAX_CPUS);++i) {
-		bit_empty(proc->cpu_mask[i]);
-	}
-	/* Set the BSP. */
-	SET_BIT(proc->cpu_mask,machine.bsp_id);
-}
 
 static void allow_all_cpus(struct schedproc *proc)
 {
@@ -115,9 +94,9 @@ int do_noquantum(message *m_ptr)
 	}
 
 	rmp = &schedproc[proc_nr_n];
-	//if (rmp->priority < MIN_USER_Q) {
-	//	rmp->priority += 1; /* lower priority */
-	//}
+	if (rmp->priority < MIN_USER_Q) {
+		rmp->priority += 1; /* lower priority */
+	}
 
 	rv = schedule_process(rmp,SCHEDULE_CHANGE_PRIO|SCHEDULE_CHANGE_QUANTUM);
 	if (rv != OK) {
@@ -362,11 +341,6 @@ void init_scheduling(void)
 		panic("sys_setalarm failed: %d", r);
 }
 
-static int is_restricted_to_bsp(struct schedproc *proc)
-{
-	return !GET_BIT(proc->cpu_mask,(machine.bsp_id+1)%CONFIG_MAX_CPUS);
-}
-
 /*===========================================================================*
  *				balance_queues				     *
  *===========================================================================*/
@@ -381,27 +355,16 @@ void balance_queues(void)
 	return;
 	struct schedproc *rmp;
 	int r, proc_nr;
-	nb_balance ++;
 
 	for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
 		if (rmp->flags & IN_USE) {
-			if(is_system_proc(rmp)&&
-			   is_restricted_to_bsp(rmp)&&
-			   nb_balance>10) {
-				/* Allow the system processes on all cpus after
-				 * a while. This is dirty as fuck. But for now
-				 * it's better than changing this goddamn
-				 * broken kernel and all its shit assumptions.
-				 */
-				allow_all_cpus(rmp);
-			}
 			if (rmp->priority > rmp->max_priority) {
 				rmp->priority -= 1; /* increase priority */
-				/* Select new cpu. */
-				/*cpu_proc[rmp->cpu]--;
+				/* Balance the load, select new cpu. */
+				cpu_proc[rmp->cpu]--;
 				rmp->cpu = pick_cpu(rmp);
 				cpu_proc[rmp->cpu]++;
-				schedule_process(rmp,SCHEDULE_CHANGE_ALL);*/
+				schedule_process(rmp,SCHEDULE_CHANGE_ALL);
 			}
 		}
 	}
