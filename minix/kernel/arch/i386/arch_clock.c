@@ -233,13 +233,19 @@ void context_stop(struct proc * p)
 		must_bkl_unlock = 1;
 	} else {
 		u64_t bkl_tsc;
+		atomic_t succ;
 		
 		read_tsc_64(&bkl_tsc);
 		/* this only gives a good estimate */
+		succ = big_kernel_lock.val;
 		
 		BKL_LOCK();
 		
 		read_tsc_64(&tsc);
+
+		bkl_ticks[cpu] = bkl_ticks[cpu] + tsc - bkl_tsc;
+		bkl_tries[cpu]++;
+		bkl_succ[cpu] += !(!(succ == 0));
 
 		p->p_cycles = p->p_cycles + tsc - *__tsc_ctr_switch;
 
