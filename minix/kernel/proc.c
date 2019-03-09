@@ -1645,7 +1645,7 @@ void enqueue(
    * process
    */
   else if (get_cpu_var(rp->p_cpu, cpu_is_idle)) {
-  	   smp_schedule(rp->p_cpu);
+	  smp_schedule(rp->p_cpu);
   }
 #endif
 

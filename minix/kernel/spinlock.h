@@ -1,7 +1,6 @@
 #ifndef __SPINLOCK_H__
 #define __SPINLOCK_H__
 
-//#include "kernel/kernel.h"
 #include <machine/archtypes.h>
 
 typedef struct spinlock {

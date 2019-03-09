@@ -17,8 +17,6 @@
 #include "archconst.h"
 #include "config.h"
 #include "debug.h"
-#include "arch_smp.h"
-#include "kernel/spinlock.h"
 
 /* Kernel information structures. This groups vital kernel information. */
 extern struct kinfo kinfo;		  /* kernel information for services */
