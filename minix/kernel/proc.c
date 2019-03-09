@@ -207,9 +207,7 @@ static void idle(void)
 	}
 
 	/* start accounting for the idle time */
-	assert(big_kernel_lock.owner==cpuid);
 	context_stop(proc_addr(KERNEL));
-	ktzprofile_event(KTRACE_IDLE_START);
 
 	/* Local wake up happens when this cpu receives an interrupt while
 	 * waiting. When this happens, the interrupt handler will call
@@ -235,10 +233,6 @@ static void idle(void)
 		context_stop_idle();
 	}
 	*local_wake_up = 0;
-
-	assert(big_kernel_lock.owner==cpuid);
-
-	ktzprofile_event(KTRACE_IDLE_STOP);
 	/*
 	 * end of accounting for the idle task does not happen here, the kernel
 	 * is handling stuff for quite a while before it gets back here!
@@ -303,7 +297,6 @@ static void delivermsg(struct proc *rp)
                 /* Indicate message has been delivered; address is 'used'. */
                 rp->p_delivermsg.m_source = NONE;
                 rp->p_misc_flags &= ~(MF_DELIVERMSG|MF_MSGFAILED);
-		ktzprofile_deliver_msg(&(rp->p_delivermsg));
 
                 if(!(rp->p_misc_flags & MF_CONTEXT_SET)) {
                         rp->p_reg.retreg = OK;
@@ -324,7 +317,6 @@ void switch_to_user(void)
 	int tlb_must_refresh = 0;
 #endif
 
-	assert(big_kernel_lock.owner==cpuid);
 	p = get_cpulocal_var(proc_ptr);
 	/*
 	 * if the current process is still runnable check the misc flags and let
@@ -338,7 +330,6 @@ void switch_to_user(void)
 	 * current process wasn't runnable, we pick a new one here
 	 */
 not_runnable_pick_new:
-	assert(big_kernel_lock.owner==cpuid);
 	if (proc_is_preempted(p)) {
 		p->p_rts_flags &= ~RTS_PREEMPTED;
 		if (proc_is_runnable(p)) {
@@ -356,9 +347,7 @@ not_runnable_pick_new:
 	 * process. If there is still nothing runnable we "schedule" IDLE again
 	 */
 	while (!(p = pick_proc())) {
-		assert(big_kernel_lock.owner==cpuid);
 		idle();
-		assert(big_kernel_lock.owner==cpuid);
 	}
 
 	/* update the global variable */
@@ -487,9 +476,6 @@ check_misc_flags:
 	
 	restart_local_timer();
 
-	/* We are definitely going to user space now. Notify the profiler. */
-	ktzprofile_event(KTRACE_USER_START);
-	
 	/*
 	 * restore_user_context() carries out the actual mode switch from kernel
 	 * to userspace. This function does not return
@@ -542,9 +528,6 @@ static int do_sync_ipc(struct proc * caller_ptr, /* who made the call */
   }
   else
   {
-#if 0
-/* Ignore all the safety nets for now so that we can implement IPC benchmarks
- * */
 	/* Require a valid source and/or destination process. */
 	if(!isokendpt(src_dst_e, &src_dst_p)) {
 #if 0
@@ -571,12 +554,7 @@ static int do_sync_ipc(struct proc * caller_ptr, /* who made the call */
 			return(ECALLDENIED);	/* call denied by ipc mask */
 		}
 	}
-#endif
   }
-
-#if 0
-/* Ignore all the safety nets for now so that we can implement IPC benchmarks
- * */
 
   /* Check if the process has privileges for the requested call. Calls to the 
    * kernel may only be SENDREC, because tasks always reply and may not block 
@@ -597,7 +575,6 @@ static int do_sync_ipc(struct proc * caller_ptr, /* who made the call */
 #endif
 	return(ETRAPDENIED);		/* trap denied by mask or kernel */
   }
-#endif
 
   switch(call_nr) {
   case SENDREC:
@@ -685,7 +662,6 @@ int do_ipc(reg_t r1, reg_t r2, reg_t r3)
    *   - NOTIFY:  asynchronous call; deliver notification or mark pending
    *   - SENDA:   list of asynchronous send requests
    */
-  ktzprofile_ipc(call_nr);
   switch(call_nr) {
   	case SENDREC:
   	case SEND:			
@@ -696,8 +672,7 @@ int do_ipc(reg_t r1, reg_t r2, reg_t r3)
   	    /* Process accounting for scheduling */
 	    caller_ptr->p_accounting.ipc_sync++;
 
-	    message *m = (message *)r3;
-  	    return do_sync_ipc(caller_ptr, call_nr, (endpoint_t) r2, m);
+  	    return do_sync_ipc(caller_ptr, call_nr, (endpoint_t) r2, (message *)r3);
   	}
   	case SENDA:
   	{
@@ -710,14 +685,12 @@ int do_ipc(reg_t r1, reg_t r2, reg_t r3)
   	    /* Process accounting for scheduling */
 	    caller_ptr->p_accounting.ipc_async++;
 
-	    asynmsg_t *amsg = (asynmsg_t *)r3;
- 
   	    /* Limit size to something reasonable. An arbitrary choice is 16
   	     * times the number of process table entries.
   	     */
   	    if (msg_size > 16*(NR_TASKS + NR_PROCS))
 	        return EDOM;
-  	    return mini_senda(caller_ptr, amsg, msg_size);
+  	    return mini_senda(caller_ptr, (asynmsg_t *) r3, msg_size);
   	}
   	case MINIX_KERNINFO:
 	{
@@ -1181,7 +1154,7 @@ int mini_notify(
       /* Destination is indeed waiting for a message. Assemble a notification 
        * message and deliver it. Copy from pseudo-source HARDWARE, since the
        * message is in the kernel's address space.
-       */
+       */ 
       assert(!(dst_ptr->p_misc_flags & MF_DELIVERMSG));
 
       BuildNotifyMessage(&dst_ptr->p_delivermsg, proc_nr(caller_ptr), dst_ptr);
@@ -1662,29 +1635,27 @@ void enqueue(
       rp->p_nextready = NULL;		/* mark new end */
   }
 
-#ifdef CONFIG_SMP
-  /*
-   * if the process was enqueued on a different cpu and the cpu is idle, i.e.
-   * the time is off, we need to wake up that cpu and let it schedule this new
-   * process
-   */
-  if (cpuid!=rp->p_cpu&&get_cpu_var(rp->p_cpu, cpu_is_idle)) {
-	  /* Signal cpu that new work is available. */
-	  get_cpu_var(rp->p_cpu,fast_wake_up) = 1;
-  }
-
-  if (!get_cpu_var(rp->p_cpu, cpu_is_idle)) {
-	  /* The dest cpu is not idle, we may need to preempt its current task. */
+  if (cpuid == rp->p_cpu) {
 	  /*
 	   * enqueueing a process with a higher priority than the current one,
 	   * it gets preempted. The current process must be preemptible. Testing
 	   * the priority also makes sure that a process does not preempt itself
 	   */
 	  struct proc * p;
-	  p = get_cpu_var(rp->p_cpu,proc_ptr);
+	  p = get_cpulocal_var(proc_ptr);
 	  assert(p);
-	  if((p->p_priority > rp->p_priority) && (priv(p)->s_flags & PREEMPTIBLE))
+	  if((p->p_priority > rp->p_priority) &&
+			  (priv(p)->s_flags & PREEMPTIBLE))
 		  RTS_SET(p, RTS_PREEMPTED); /* calls dequeue() */
+  }
+#ifdef CONFIG_SMP
+  /*
+   * if the process was enqueued on a different cpu and the cpu is idle, i.e.
+   * the time is off, we need to wake up that cpu and let it schedule this new
+   * process
+   */
+  else if (get_cpu_var(rp->p_cpu, cpu_is_idle)) {
+  	smp_schedule(rp->p_cpu);
   }
 #endif
 

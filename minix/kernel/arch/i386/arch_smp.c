@@ -22,6 +22,7 @@
 #include "glo.h"
 
 void trampoline(void);
+
 /*
  * arguments for trampoline. We need to pass the logical cpu id, gdt and idt.
  * They have to be in location which is reachable using absolute addressing in

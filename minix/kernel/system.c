@@ -101,18 +101,17 @@ static int kernel_call_dispatch(struct proc * caller, message *msg)
 	hook_ipc_msgkcall(msg, caller);
 #endif
   call_nr = msg->m_type - KERNEL_CALL;
-  ktzprofile_kernel_call(call_nr);
 
   /* See if the caller made a valid request and try to handle it. */
   if (call_nr < 0 || call_nr >= NR_SYS_CALLS) {	/* check call number */
 	  printf("SYSTEM: illegal request %d from %d.\n",
 			  call_nr,msg->m_source);
 	  result = EBADREQUEST;			/* illegal message type */
-  /*}
+  }
   else if (!GET_BIT(priv(caller)->s_k_call_mask, call_nr)) {
 	  printf("SYSTEM: denied request %d from %d.\n",
 			  call_nr,msg->m_source);
-	  result = ECALLDENIED;	*/		/* illegal message type */
+	  result = ECALLDENIED;		/* illegal message type */
   } else {
 	  /* handle the system call */
 	  if (call_vec[call_nr])

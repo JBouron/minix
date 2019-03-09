@@ -16,8 +16,8 @@ static struct arch_watchdog amd_watchdog;
 
 static void intel_arch_watchdog_init(const unsigned cpu)
 {
-	/* Nothing to do, the MSRs will be configured when starting the timer
-	 * for the first time and upon every tick. */
+	/* Nothing to do, the MSRs will be (re-)configured when starting the
+	 * timer for the first time and upon every tick. */
 }
 
 static void intel_arch_watchdog_reinit(const unsigned cpu)

@@ -2,8 +2,6 @@
 #define __SPINLOCK_H__
 
 #include <machine/archtypes.h>
-#include "ktzprofile.h"
-#include "bkl.h"
 
 typedef struct spinlock {
 	atomic_t val;
@@ -32,27 +30,14 @@ typedef struct spinlock {
 #else
 void arch_spinlock_lock(atomic_t * sl);
 void arch_spinlock_unlock(atomic_t * sl);
-int arch_fetch_and_inc(atomic_t *counter);
-void *fetch_and_store(void *dest,void *val);
-void *compare_and_swap(void *dest, void *expected, void *new);
-#define spinlock_lock(sl)	arch_spinlock_lock(&((sl)->val))
-#define spinlock_unlock(sl)	arch_spinlock_unlock(&((sl)->val))
+#define spinlock_lock(sl)	arch_spinlock_lock((atomic_t*) sl)
+#define spinlock_unlock(sl)	arch_spinlock_unlock((atomic_t*) sl)
 #endif
 
 
 #endif /* CONFIG_SMP */
 
-#define BKL_LOCK() \
-	do { \
-		ktzprofile_event(KTRACE_BKL_TRY); \
-		big_kernel_lock.lock(); \
-		ktzprofile_event(KTRACE_BKL_ACQUIRE); \
-	} while (0)
-
-#define BKL_UNLOCK() \
-	do { \
-		ktzprofile_event(KTRACE_BKL_RELEASE); \
-		big_kernel_lock.unlock(); \
-	} while (0)
+#define BKL_LOCK()	spinlock_lock(&big_kernel_lock)
+#define BKL_UNLOCK()	spinlock_unlock(&big_kernel_lock)
 
 #endif /* __SPINLOCK_H__ */

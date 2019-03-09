@@ -17,10 +17,8 @@
 #include "archconst.h"
 #include "config.h"
 #include "debug.h"
-#include "ktrace.h"
 #include "arch_smp.h"
 #include "kernel/spinlock.h"
-#include "ktzprofile.h"
 
 /* Kernel information structures. This groups vital kernel information. */
 extern struct kinfo kinfo;		  /* kernel information for services */

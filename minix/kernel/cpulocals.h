@@ -31,8 +31,6 @@
 
 #endif
 
-#include "bkl.h"
-
 /*
  * The global cpu local variables in use
  */
@@ -49,7 +47,6 @@ extern struct __cpu_local_vars {
  */
 	int pagefault_handled;
 
-	struct mcs_node mcs_node;
 /*
  * which processpage tables are loaded right now. We need to know this because
  * some processes are loaded in each process pagetables and don't have their own
